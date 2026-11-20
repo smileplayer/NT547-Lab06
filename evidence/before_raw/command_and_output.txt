@@ -1,0 +1,64 @@
+COMMAND: slither AuditTarget.sol --config-file config/slither.raw.json --fail-none --json evidence/before_raw/slither.json
+SLITHER_VERSION:
+0.11.6
+
+SOLC_VERSION:
+solc, the solidity compiler commandline interface
+Version: 0.8.24+commit.e11b9ed9.Linux.g++
+
+
+Detector: weak-prng
+StakingPool_0343.dayOfWeek() (AuditTarget.sol#39-41) uses a weak PRNG: "(block.timestamp / 86400 + 4) % 7 (AuditTarget.sol#40)" 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#weak-PRNG
+
+Detector: reentrancy-eth
+Reentrancy in StakingPool_0343.exitPool() (AuditTarget.sol#58-64):
+	External calls:
+	- (ok,None) = msg.sender.call{value: amount}() (AuditTarget.sol#61)
+	State variables written after the call(s):
+	- ledger[msg.sender] = 0 (AuditTarget.sol#63)
+	StakingPool_0343.ledger (AuditTarget.sol#12) can be used in cross function reentrancies:
+	- StakingPool_0343.exitPool() (AuditTarget.sol#58-64)
+	- StakingPool_0343.fund() (AuditTarget.sol#29-32)
+	- StakingPool_0343.ledger (AuditTarget.sol#12)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-1
+
+Detector: unchecked-transfer
+StakingPool_0343.convertRewards(uint256) (AuditTarget.sol#48-52) ignores return value by stableCoin.transfer(msg.sender,amount) (AuditTarget.sol#51)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unchecked-transfer
+
+Detector: uninitialized-state
+StakingPool_0343.beneficiary (AuditTarget.sol#15) is never initialized. It is used in:
+	- StakingPool_0343.moveToTreasury() (AuditTarget.sol#54-56)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#uninitialized-state-variables
+
+Detector: tx-origin
+StakingPool_0343.updateOwner(address) (AuditTarget.sol#66-70) uses tx.origin for authorization: require(bool,string)(tx.origin == owner,not owner) (AuditTarget.sol#67)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-usage-of-txorigin
+
+Detector: timestamp
+StakingPool_0343.releaseTenth() (AuditTarget.sol#72-77) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(block.timestamp >= cooldownEnd,locked) (AuditTarget.sol#73)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+
+Detector: low-level-calls
+Low level call in StakingPool_0343.ownerWithdraw(uint256) (AuditTarget.sol#34-37):
+	- (ok,None) = address(owner).call{value: amount}() (AuditTarget.sol#35)
+Low level call in StakingPool_0343.exitPool() (AuditTarget.sol#58-64):
+	- (ok,None) = msg.sender.call{value: amount}() (AuditTarget.sol#61)
+Low level call in StakingPool_0343.releaseTenth() (AuditTarget.sol#72-77):
+	- (ok,None) = address(owner).call{value: address(this).balance / 10}() (AuditTarget.sol#75)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+
+Detector: naming-convention
+Contract StakingPool_0343 (AuditTarget.sol#10-78) is not in CapWords
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+Detector: constable-states
+StakingPool_0343.beneficiary (AuditTarget.sol#15) should be constant 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-constant
+AuditTarget.sol analyzed (2 contracts with 102 detectors), 11 result(s) found
+Multiple frameworks detected: solc, Solc-json. Using solc (highest priority). Use --compile-force-framework to override.
+'solc --version' running
+'solc AuditTarget.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/mnt/c/Users/Minh Duc/Downloads/Lab06_SinhVien' running
