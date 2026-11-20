@@ -1,0 +1,3 @@
+﻿index,check,impact,confidence,file,lines,description
+1,tx-origin,Medium,Medium,AuditTarget.sol,"69,70,71,72,73; 70","StakingPool_0343.updateOwner(address) (AuditTarget.sol#69-73) uses tx.origin for authorization: require(bool,string)(tx.origin == owner,not owner) (AuditTarget.sol#70)"
+2,immutable-states,Optimization,High,AuditTarget.sol,15,StakingPool_0343.beneficiary (AuditTarget.sol#15) should be immutable

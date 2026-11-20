@@ -1,0 +1,127 @@
+{
+  "success": true,
+  "error": null,
+  "results": {
+    "detectors": [
+      {
+        "elements": [
+          {
+            "type": "variable",
+            "name": "beneficiary",
+            "source_mapping": {
+              "start": 425,
+              "length": 36,
+              "filename_relative": "AuditTarget.sol",
+              "filename_absolute": "/mnt/c/Users/Minh Duc/Downloads/Lab06_SinhVien/AuditTarget.sol",
+              "filename_short": "AuditTarget.sol",
+              "is_dependency": false,
+              "lines": [
+                15
+              ],
+              "starting_column": 5,
+              "ending_column": 41
+            },
+            "type_specific_fields": {
+              "parent": {
+                "type": "contract",
+                "name": "StakingPool_0343",
+                "source_mapping": {
+                  "start": 239,
+                  "length": 2262,
+                  "filename_relative": "AuditTarget.sol",
+                  "filename_absolute": "/mnt/c/Users/Minh Duc/Downloads/Lab06_SinhVien/AuditTarget.sol",
+                  "filename_short": "AuditTarget.sol",
+                  "is_dependency": false,
+                  "lines": [
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15,
+                    16,
+                    17,
+                    18,
+                    19,
+                    20,
+                    21,
+                    22,
+                    23,
+                    24,
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    33,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42,
+                    43,
+                    44,
+                    45,
+                    46,
+                    47,
+                    48,
+                    49,
+                    50,
+                    51,
+                    52,
+                    53,
+                    54,
+                    55,
+                    56,
+                    57,
+                    58,
+                    59,
+                    60,
+                    61,
+                    62,
+                    63,
+                    64,
+                    65,
+                    66,
+                    67,
+                    68,
+                    69,
+                    70,
+                    71,
+                    72,
+                    73,
+                    74,
+                    75,
+                    76,
+                    77,
+                    78,
+                    79,
+                    80,
+                    81
+                  ],
+                  "starting_column": 1,
+                  "ending_column": 2
+                }
+              }
+            }
+          }
+        ],
+        "description": "StakingPool_0343.beneficiary (AuditTarget.sol#15) should be immutable \n",
+        "markdown": "[StakingPool_0343.beneficiary](AuditTarget.sol#L15) should be immutable \n",
+        "first_markdown_element": "AuditTarget.sol#L15",
+        "id": "b6f88f8e921cf9d1280394e1136a8fbd4dee7f93929d90ac2c93c5d3fadb80ca",
+        "check": "immutable-states",
+        "impact": "Optimization",
+        "confidence": "High",
+        "reference": "https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable"
+      }
+    ]
+  }
+}

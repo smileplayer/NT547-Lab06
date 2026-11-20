@@ -1,9 +1,9 @@
 # NT547 - LAB 06 - BÁO CÁO (TỰ ĐIỀN)
 
 **MSSV:** 25520343  | **Họ tên:** Tạ Minh Đức | **Lớp:** ATTT2025.1
-**Session code tự sinh:** SC-1DB280 | **Tên contract:** ...
-**Solidity / Slither:** ... / ... | **Ngày hoàn thành:** ...
-**URL GitHub repository:** ...
+**Session code tự sinh:** SC-1DB280 | **Tên contract:** StakingPool_0343
+**Solidity / Slither:** 0.8.24 / 0.11.6 | **Ngày hoàn thành:** 20/11/2026
+**URL GitHub repository:** https://github.com/smileplayer/NT547-Lab06
 
 ## 1. Static scan (2,0 điểm)
 
@@ -52,46 +52,63 @@ Cả 6 mẫu đều được Slither báo; không có mẫu "Manual review / Not
   - `low-level-calls` (Informational, 3 chỗ: `ownerWithdraw`, `exitPool`, `releaseTenth`): cả ba đều kiểm tra `require(ok, ...)`, và `exitPool` đã theo thứ tự Checks-Effects-Interactions, nên chấp nhận.
   - `naming-convention` (Informational): tên contract `StakingPool_0343` có hậu tố MSSV do bài sinh tự động, chỉ là quy ước đặt tên.
   - `immutable-states` (Optimization): `beneficiary` chỉ được gán trong constructor nên có thể khai báo `immutable` để tiết kiệm gas; không phải lỗ hổng bảo mật.
-- Lý do `slither-disable-next-line`: một chỗ duy nhất, detector `weak-prng`, đặt ngay trước dòng 40 trong `dayOfWeek()`. Kiểm soát bù trừ: hàm `view`, không ghi state, không chuyển ETH/token, kết quả không được dùng làm nguồn ngẫu nhiên cho quyền hoặc tiền.
+- Lý do `slither-disable-next-line`: một chỗ duy nhất, detector `weak-prng`, đặt ngay trước biểu thức bị báo trong `dayOfWeek()` (dòng 40 ở baseline; ở bản đã sửa comment nằm dòng 41, biểu thức dòng 42). Kiểm soát bù trừ: hàm `view`, không ghi state, không chuyển ETH/token, kết quả không được dùng làm nguồn ngẫu nhiên cho quyền hoặc tiền.
 
 ## 3. Kiến trúc / Inheritance (1,5 điểm)
 
-- Lệnh printer đã chạy: ...
-- Ảnh `evidence/architecture/inheritance.png` (hoặc .dot, nếu Graphviz chưa có): ...
-- Access control nằm ở ...; logic số dư nằm ở ...; contract triển khai nằm ở ...
-- Giải thích 3–5 câu điểm audit cần bắt đầu: ...
+- Lệnh printer đã chạy: `python tools/print_arch.py` (sinh `human_summary.txt`), sau đó chạy tay `slither contracts/ArchitectureDemo.sol --print inheritance-graph --config-file config/slither.raw.json --fail-none` vì script không tìm thấy file `.dot` (Slither ghi ra `contracts/ArchitectureDemo.sol.inheritance-graph.dot`); file này được copy vào `evidence/architecture/` và render bằng `dot -Tpng`.
+- Ảnh `evidence/architecture/inheritance_annotated.png` (có đánh dấu node; bản gốc `inheritance.png`), kèm `.dot` và `human_summary.txt`: ![inheritance](../evidence/architecture/inheritance_annotated.png)
+- Access control nằm ở `AccessManaged` (biến `admin`, modifier `onlyAdmin`); logic số dư nằm ở `BalanceLedger` (mapping `balances`, hàm `_credit`); contract triển khai nằm ở `StudentAsset` (kế thừa cả hai, là contract được gọi từ bên ngoài).
+- Giải thích 3-5 câu điểm audit cần bắt đầu: Phần security-critical chia ở hai contract cha: `AccessManaged` quyết định ai được phép làm gì (`admin`, `onlyAdmin`), còn `BalanceLedger` giữ state tiền (`balances`) và chỉ cho `_credit` ghi nội bộ. Entrypoint thật sự là `StudentAsset.mint`, vì đây là hàm `external` duy nhất thay đổi state, và nó nối hai phần: `onlyAdmin` chặn người lạ rồi `_credit` cộng số dư. Nên bắt đầu audit từ `mint`, sau đó lần ngược lên `onlyAdmin` trong `AccessManaged` (kiểm tra `admin` được gán đúng trong constructor và không đổi được) và `_credit` trong `BalanceLedger` (kiểm tra không có đường nào khác ghi vào `balances`). Làm vậy vì lỗ hổng thường nằm ở chỗ nối giữa các contract: nếu `mint` thiếu `onlyAdmin` hay `to` không được kiểm tra, bất kỳ ai cũng tạo được số dư.
 
 ## 4. Red -> Green CI (2,5 điểm)
 
 | Phase | Commit (full/short SHA) | Run URL | Kết quả | Detector khiến RED / lý do GREEN |
 |---|---|---|---|---|
-| Baseline vulnerable | | | RED | |
-| Patched | | | GREEN | |
+| Baseline vulnerable | b7ac78c68c6943c1dfe10f9f111f287b485bf3eb / b7ac78c | https://github.com/smileplayer/NT547-Lab06/actions/runs/44656957021 | RED | 4 High + 1 Medium: `weak-prng`, `reentrancy-eth`, `unchecked-transfer`, `uninitialized-state` (High) và `tx-origin` (Medium). Log: `6 result(s) found` (cả `constable-states` mức Optimization) |
+| Patched | dfca9b4865ed4850cd95a81cc080df9785e5ee11 / dfca9b4 | https://github.com/smileplayer/NT547-Lab06/actions/runs/44659976447 | GREEN | Sửa 4 TP (CEI ở `exitPool`, `require` kết quả `transfer`, khởi tạo `beneficiary`, `msg.sender` thay `tx.origin`) và suppression đúng dòng cho `weak-prng` ở `dayOfWeek`; còn lại chỉ Low/Informational/Optimization, dưới ngưỡng `fail-on: medium` |
 
-- So sánh local `--fail-none` (thu thập findings) với CI `fail-on: medium`: ...
-- `exclude_low/informational` thay đổi kết quả hiển thị ra sao: ...
+- So sánh local `--fail-none` (thu thập findings) với CI `fail-on: medium`: Ở local em dùng `--fail-none` nên scan luôn có exit code 0 (`process_exit_code: 0`) dù contract còn 4 High + 1 Medium; mục đích chỉ là lưu `slither.json/findings.csv` làm bằng chứng, không có nghĩa contract an toàn. CI dùng `fail-on: medium` nên cùng bản baseline đó làm job `audit` fail (RED), còn bản đã sửa không còn High/Medium nên GREEN.
+- `exclude_low/informational` thay đổi kết quả hiển thị ra sao: Config `slither.config.json` chỉ lọc bớt Low/Informational. Trước khi sửa, raw có 11 finding (4 High, 1 Medium, 1 Low, 4 Informational, 1 Optimization) còn configured chỉ còn 6 (4 High, 1 Medium, 0 Low, 0 Informational, 1 Optimization). 4 High và 1 Medium vẫn giữ nguyên ở cả hai chế độ, tức đổi config không làm biến mất lỗi nghiêm trọng. Sau khi sửa, raw còn 7 (0/0/2/4/1) và configured còn 1 (`immutable-states`).
 
 ## 5. Mutation RED -> GREEN (1,5 điểm)
 
-- Mutation một dòng: `require(msg.sender == owner, "not owner")` -> `require(tx.origin == owner, "not owner")` trong `modifier onlyOwner`.
-- Detector kỳ vọng: `tx-origin` (mức Medium); xác nhận của em từ CI: ...
+- Mutation một dòng: `require(msg.sender == owner, "not owner")` -> `require(tx.origin == owner, "not owner")`.
+  - Lần 1 trong `modifier onlyOwner` (dòng 21, commit `8f9986a`): CI vẫn GREEN. Scan local bản mutation (`evidence/mutation_raw`, `evidence/mutation_configured`) không có finding `tx-origin`, tức Slither 0.11.6 không báo `tx.origin` khi nó nằm trong modifier (false negative của công cụ).
+  - Lần 2 trong `updateOwner` (dòng 70 ở bản đã sửa, commit `a5a3e6e`): cùng kiểu thay đổi, đúng một dòng bảo vệ quyền, tại vị trí baseline từng bị báo `tx-origin`. Scan local bản mutation này (`evidence/mutation2_configured/`) báo `tx-origin` (Medium) + `immutable-states`, khớp với CI.
+- Detector kỳ vọng: `tx-origin` (mức Medium); xác nhận của em từ CI: log step "Slither Solidity 0.8.24 (High + Medium gate)" của run 44665148395 ghi `Detector: tx-origin` - `StakingPool_0343.updateOwner(address) (AuditTarget.sol#69-73) uses tx.origin for authorization: require(bool,string)(tx.origin == owner,not owner) (AuditTarget.sol#70)`, kèm `immutable-states` (Optimization), tổng `2 result(s) found`. Vì `tx-origin` là Medium nên gate `fail-on: medium` làm job `audit` fail (ảnh `evidence/screenshots/08_ci_red_mutation_a5a3e6e.png`).
 
 | Phase | Commit SHA | Run URL | Kết quả |
 |---|---|---|---|
-| Mutation | | | RED |
-| Revert mutation | | | GREEN |
+| Mutation (`updateOwner`) | a5a3e6e34923f184a7d2e9b02df6083cd6833552 | https://github.com/smileplayer/NT547-Lab06/actions/runs/44665148395 | RED |
+| Revert mutation | 7590e3337bdaa6c28ae296c40619329c4897c60c | https://github.com/smileplayer/NT547-Lab06/actions/runs/44665473535 | GREEN |
 
-- Giải thích sự thay đổi về nguồn định danh/authorization: ...
+- Bằng chứng phụ (mutation lần 1, không dùng trong bảng chính): commit `8f9986a` (mutation trong `modifier onlyOwner`, CI GREEN) và `57048ac` (revert của nó, GREEN), kèm `git show 8f9986a`, `evidence/mutation_raw/`, `evidence/mutation_configured/`.
+- Giải thích sự thay đổi về nguồn định danh/authorization: `msg.sender` là địa chỉ gọi trực tiếp hàm nên chỉ owner thật gọi mới qua được kiểm tra. `tx.origin` là địa chỉ gốc khởi tạo giao dịch, nên nếu owner bị dụ gọi một contract trung gian, contract đó gọi `updateOwner` thì `tx.origin == owner` vẫn đúng và kẻ tấn công đổi được `owner`. Vì vậy kiểm tra quyền phải dựa trên `msg.sender`.
 
 ## 6. Bằng chứng, tự kiểm
 
-- [ ] `AuditTarget.sol`, `lab_identity.json`
-- [ ] `evidence/before_raw/` và `evidence/before_configured/`
-- [ ] `evidence/after_raw/` và `evidence/after_configured/`
-- [ ] `evidence/architecture/`
-- [ ] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA
-- [ ] Link repo và ảnh màn hình có terminal / URL / commit SHA; không cắt mất ngữ cảnh
-- [ ] Các finding được triage, không chép lại mô tả detector thay cho suy luận
-- [ ] Tuyệt đối không có seed phrase, private key, credentials
+- [x] `AuditTarget.sol`, `lab_identity.json`
+- [x] `evidence/before_raw/` và `evidence/before_configured/`
+- [x] `evidence/after_raw/` và `evidence/after_configured/`
+- [x] `evidence/architecture/`
+- [x] 04 URL Actions run RED/GREEN/RED/GREEN + 04 commit SHA
+- [x] Link repo và ảnh màn hình có terminal / URL / commit SHA; không cắt mất ngữ cảnh
+- [x] Các finding được triage, không chép lại mô tả detector thay cho suy luận
+- [x] Tuyệt đối không có seed phrase, private key, credentials
 
-**Nhận xét cuối cùng (5–7 câu):** ...
+### Ảnh minh chứng (`evidence/screenshots/`)
+
+| # | Nội dung | Ảnh |
+|---|---|---|
+| 1 | `solc 0.8.24`, `slither 0.11.6`, `create_lab.py 25520343` (SC-1DB280), scan raw/configured BEFORE (11 / 6 finding) | ![](../evidence/screenshots/01_setup_scan_before.png) |
+| 2 | CI RED baseline, run 44656957021 (b7ac78c): 6 result(s) found, có `reentrancy-eth`, `unchecked-transfer`, `uninitialized-state`, `weak-prng`, `tx-origin` | ![](../evidence/screenshots/02_ci_red_baseline_b7ac78c.png) |
+| 3 | `git remote add origin` + scan raw/configured AFTER (7 / 1 finding) | ![](../evidence/screenshots/03_scan_after.png) |
+| 4 | `evidence/after_raw/summary.json` | ![](../evidence/screenshots/04_after_raw_summary.png) |
+| 5 | `evidence/after_configured/summary.json` | ![](../evidence/screenshots/05_after_configured_summary.png) |
+| 6 | `git diff -- AuditTarget.sol` (4 bản sửa + 1 suppression) | ![](../evidence/screenshots/06_git_diff_fix.png) |
+| 7 | CI GREEN patched, run 44659976447 (dfca9b4) | ![](../evidence/screenshots/07_ci_green_patched_dfca9b4.png) |
+| 8 | CI RED mutation, run 44665148395 (a5a3e6e): `Detector: tx-origin` tại `AuditTarget.sol#70` | ![](../evidence/screenshots/08_ci_red_mutation_a5a3e6e.png) |
+| 9 | CI GREEN revert, run 44665473535 (7590e33) | ![](../evidence/screenshots/09_ci_green_revert_7590e33.png) |
+
+**Nhận xét cuối cùng (5-7 câu):** Slither giúp em phát hiện rất nhanh 4 lỗi High và 1 lỗi Medium ngay ở bản baseline, và khi gắn vào GitHub Actions với `fail-on: medium` thì CI chặn được bản có lỗi (RED) và chỉ cho qua khi đã sửa (GREEN). Tuy vậy không thể tin tuyệt đối vào nhãn severity của công cụ: `weak-prng` bị xếp High nhưng `dayOfWeek()` chỉ là hàm `view` để hiển thị nên em chấp nhận bằng suppression đúng một dòng có lý do. Ngược lại công cụ cũng có thể bỏ sót: khi em đổi `msg.sender` thành `tx.origin` trong `modifier onlyOwner`, Slither 0.11.6 không báo gì và CI vẫn GREEN, chỉ khi mutation nằm trong thân hàm `updateOwner` thì mới RED. Điều đó cho thấy quality gate chỉ có giá trị khi đi kèm triage và đọc code thủ công, đặc biệt ở các chỗ kiểm soát quyền. Cấu hình `exclude_low/informational` chỉ giảm nhiễu hiển thị chứ không làm mất lỗi nghiêm trọng, nên vẫn cần xem bản raw. Cuối cùng, việc revert bằng commit mới thay vì sửa lịch sử giúp giữ lại chuỗi bằng chứng RED -> GREEN -> RED -> GREEN rõ ràng cho người review.

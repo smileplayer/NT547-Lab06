@@ -1,0 +1,2 @@
+﻿index,check,impact,confidence,file,lines,description
+1,immutable-states,Optimization,High,AuditTarget.sol,15,StakingPool_0343.beneficiary (AuditTarget.sol#15) should be immutable
