@@ -1,0 +1,16 @@
+COMMAND: slither AuditTarget.sol --config-file slither.config.json --fail-none --json evidence/after_configured/slither.json
+SLITHER_VERSION:
+0.11.6
+
+SOLC_VERSION:
+solc, the solidity compiler commandline interface
+Version: 0.8.24+commit.e11b9ed9.Linux.g++
+
+
+Detector: immutable-states
+StakingPool_0343.beneficiary (AuditTarget.sol#15) should be immutable 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#state-variables-that-could-be-declared-immutable
+AuditTarget.sol analyzed (2 contracts with 64 detectors), 1 result(s) found
+Multiple frameworks detected: solc, Solc-json. Using solc (highest priority). Use --compile-force-framework to override.
+'solc --version' running
+'solc AuditTarget.sol --combined-json abi,ast,bin,bin-runtime,srcmap,srcmap-runtime,userdoc,devdoc,hashes --allow-paths .,/mnt/c/Users/Minh Duc/Downloads/Lab06_SinhVien' running

@@ -23,23 +23,36 @@
 
 ## 2. Triage và sửa lỗi (2,5 điểm)
 
-Đọc toàn bộ AuditTarget.sol: nhận diện **4 mẫu lỗi thật + 2 đoạn cần đánh giá ngữ cảnh**,
-kể cả khi Slither không hiển thị đủ 6 cảnh báo. Với mẫu không có detector,
-ghi “Manual review / Not reported”, KHÔNG sửa slither.json hoặc tạo finding giả.
+Đọc toàn bộ AuditTarget.sol: nhận diện **4 mẫu lỗi thật + 2 đoạn cần đánh giá ngữ cảnh**.
+Cả 6 mẫu đều được Slither báo; không có mẫu "Manual review / Not reported".
 
 | Detector + vị trí | TP / FP / Chưa kết luận | Bằng chứng kiểm soát/khả năng khai thác | Biện pháp (Fix / Accept có lý do) | Sau sửa |
 |---|---|---|---|---|
-| reentrancy-eth (High) – `exitPool()` dòng 58-64 | TP | Hàm `external`, không có quyền hạn chế; `.call` ở dòng 61 chạy trước `ledger[msg.sender]=0` ở dòng 63 nên contract độc hại gọi lại được | Fix: áp dụng Checks-Effects-Interactions, đặt `ledger[msg.sender]=0` trước `.call` | [...] |
-| unchecked-transfer (High) – `convertRewards()` dòng 48-52 | TP | Hàm `external`, `points` bị trừ ở dòng 50 nhưng kết quả `transfer` ở dòng 51 không được kiểm tra | Fix: `require(stableCoin.transfer(msg.sender, amount), "transfer failed")` | [...] |
-| uninitialized-state (High) – `beneficiary` dòng 15, dùng trong `moveToTreasury()` dòng 54-56 | TP | Không có dòng nào ghi `beneficiary` nên luôn là `address(0)`; `transfer` gửi ETH vào địa chỉ 0 | Fix: gán `beneficiary = payable(msg.sender)` trong constructor, thêm `require(beneficiary != address(0))` | [...] |
-| tx-origin (Medium) – `updateOwner()` dòng 66-70 | TP | Quyền kiểm tra bằng `tx.origin` (dòng 67) nên bị lợi dụng qua contract trung gian | Fix: đổi thành `require(msg.sender == owner, "not owner")` | [...] |
-| weak-prng (High) – `dayOfWeek()` dòng 39-41 | Accepted (không khai thác được) | Hàm `view`, không ghi state, không chuyển tiền, không cấp quyền; chỉ trả về thứ trong tuần | Accept: `// slither-disable-next-line weak-prng` đúng dòng 40, lý do ở bên dưới | [...] |
-| timestamp (Low) – `releaseTenth()` dòng 72-77 | Accepted | Hàm có `onlyOwner`; cooldown 1 ngày nên miner chỉ lệch vài giây, không ảnh hưởng điều kiện | Accept: không đổi code (mức Low, không chặn CI ở ngưỡng Medium) | [...] |
+| reentrancy-eth (High) – `exitPool()` dòng 58-64 | TP | Hàm `external`, không giới hạn quyền; `.call` ở dòng 61 chạy trước `ledger[msg.sender]=0` ở dòng 63 nên contract độc hại gọi lại được | Fix: Checks-Effects-Interactions, đưa `ledger[msg.sender]=0` lên trước `.call` | Hết ở cả raw và configured |
+| unchecked-transfer (High) – `convertRewards()` dòng 48-52 | TP | Hàm `external`, `points` bị trừ ở dòng 50 nhưng kết quả `transfer` ở dòng 51 không được kiểm tra | Fix: `require(stableCoin.transfer(msg.sender, amount), "transfer failed")` | Hết ở cả raw và configured |
+| uninitialized-state (High) – `beneficiary` dòng 15, dùng trong `moveToTreasury()` dòng 54-56 | TP | Không có dòng nào ghi `beneficiary` nên luôn là `address(0)`, `transfer` gửi ETH vào địa chỉ 0 và mất vĩnh viễn | Fix: gán `beneficiary = payable(msg.sender)` trong constructor, thêm `require(beneficiary != address(0))` trong `moveToTreasury` | Hết ở cả raw và configured |
+| tx-origin (Medium) – `updateOwner()` dòng 66-70 | TP | Quyền kiểm tra bằng `tx.origin` (dòng 67) nên bị lợi dụng qua contract trung gian | Fix: đổi thành `require(msg.sender == owner, "not owner")` | Hết ở cả raw và configured |
+| weak-prng (High) – `dayOfWeek()` dòng 39-41 | Accepted (không khai thác được) | Hàm `view`, không ghi state, không chuyển tiền, không cấp quyền; chỉ trả về thứ trong tuần để hiển thị | Accept: `// slither-disable-next-line weak-prng` đúng dòng 40, lý do ở dưới | Không còn báo ở cả hai chế độ |
+| timestamp (Low) – `releaseTenth()` dòng 72-77 | Accepted | Hàm có `onlyOwner`; cooldown 1 ngày nên miner chỉ lệch vài giây, không đủ ảnh hưởng điều kiện `block.timestamp >= cooldownEnd` | Accept: không đổi code, mức Low không chặn CI ở ngưỡng Medium | Còn ở raw (Low), configured lọc bỏ |
 
 - Kịch bản khai thác TP (reentrancy): kẻ tấn công deploy contract có `fallback` gọi lại `exitPool()` -> gọi `fund()` gửi một ít ETH rồi gọi `exitPool()` -> `.call` gửi ETH ở dòng 61 trước khi `ledger` về 0, `fallback` gọi `exitPool()` lần nữa với `ledger` vẫn còn giá trị cũ -> lặp lại cho tới khi pool cạn ETH của người dùng khác.
-- Finding severity cao nhưng risk thực tế thấp: `weak-prng` được Slither xếp High, nhưng `dayOfWeek()` là hàm `view` chỉ để hiển thị thứ trong tuần. Không có tiền hay quyền nào phụ thuộc vào kết quả, và miner chỉ lệch được timestamp vài giây, không đủ để đổi sang ngày khác một cách có lợi. Vì vậy risk thực tế thấp hơn nhiều so với nhãn High.
-- Bằng chứng: `git diff -- AuditTarget.sol` (đính kèm ảnh), scan before: High 4 / Medium 1 / Low 1 / Info 4 / Opt 1; scan after: [...]. Cảnh báo còn lại sau sửa: [điền theo kết quả thật, ví dụ low-level-calls, naming-convention, timestamp và giải thích vì sao chấp nhận].
-- Lý do `slither-disable-next-line`: detector `weak-prng`, đặt ngay trước dòng 40 trong `dayOfWeek()`. Kiểm soát bù trừ: hàm `view`, không ghi state, không chuyển ETH/token, không dùng kết quả làm nguồn ngẫu nhiên cho quyền hoặc tiền.
+- Finding severity cao nhưng risk thực tế thấp: `weak-prng` được Slither xếp High, nhưng `dayOfWeek()` là hàm `view` chỉ để hiển thị thứ trong tuần. Không có tiền hay quyền nào phụ thuộc kết quả, và miner chỉ lệch được timestamp vài giây, không đủ để chuyển sang ngày khác một cách có lợi. Vì vậy risk thực tế thấp hơn nhiều so với nhãn High.
+- Bằng chứng `git diff`, scan before/after:
+
+| Chế độ | High | Medium | Low | Informational | Optimization | Tổng |
+|---|---|---|---|---|---|---|
+| raw before | 4 | 1 | 1 | 4 | 1 | 11 |
+| raw after | 0 | 0 | 2 | 4 | 1 | 7 |
+| configured before | 4 | 1 | 0 | 0 | 1 | 6 |
+| configured after | 0 | 0 | 0 | 0 | 1 | 1 |
+
+  Cảnh báo còn lại sau sửa (đều không phải High/Medium) và lý do chấp nhận:
+  - `events-access` (Low): `updateOwner()` đổi `owner` nhưng không phát event, nên khó theo dõi off-chain. Không gây mất tiền hay chiếm quyền, quyền gọi đã giới hạn bằng `msg.sender == owner`. Có thể bổ sung event sau; trong phạm vi bài chấp nhận.
+  - `timestamp` (Low): đã phân tích ở bảng trên.
+  - `low-level-calls` (Informational, 3 chỗ: `ownerWithdraw`, `exitPool`, `releaseTenth`): cả ba đều kiểm tra `require(ok, ...)`, và `exitPool` đã theo thứ tự Checks-Effects-Interactions, nên chấp nhận.
+  - `naming-convention` (Informational): tên contract `StakingPool_0343` có hậu tố MSSV do bài sinh tự động, chỉ là quy ước đặt tên.
+  - `immutable-states` (Optimization): `beneficiary` chỉ được gán trong constructor nên có thể khai báo `immutable` để tiết kiệm gas; không phải lỗ hổng bảo mật.
+- Lý do `slither-disable-next-line`: một chỗ duy nhất, detector `weak-prng`, đặt ngay trước dòng 40 trong `dayOfWeek()`. Kiểm soát bù trừ: hàm `view`, không ghi state, không chuyển ETH/token, kết quả không được dùng làm nguồn ngẫu nhiên cho quyền hoặc tiền.
 
 ## 3. Kiến trúc / Inheritance (1,5 điểm)
 

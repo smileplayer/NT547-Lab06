@@ -24,6 +24,7 @@ contract StakingPool_0343 {
 
     constructor() {
         owner = msg.sender;
+        beneficiary = payable(msg.sender);
     }
 
     function fund() external payable {
@@ -37,6 +38,7 @@ contract StakingPool_0343 {
     }
 
     function dayOfWeek() external view returns (uint256) {
+        // slither-disable-next-line weak-prng
         return (block.timestamp / 1 days + 4) % 7;
     }
 
@@ -48,23 +50,24 @@ contract StakingPool_0343 {
     function convertRewards(uint256 amount) external {
         require(points[msg.sender] >= amount, "not enough");
         points[msg.sender] -= amount;
-        stableCoin.transfer(msg.sender, amount);
+        require(stableCoin.transfer(msg.sender, amount), "transfer failed");
     }
 
     function moveToTreasury() external onlyOwner {
+        require(beneficiary != address(0), "no beneficiary");
         beneficiary.transfer(address(this).balance / 2);
     }
 
     function exitPool() external {
         uint256 amount = ledger[msg.sender];
         require(amount > 0, "empty");
+        ledger[msg.sender] = 0;
         (bool ok, ) = msg.sender.call{value: amount}("");
         require(ok, "send failed");
-        ledger[msg.sender] = 0;
     }
 
     function updateOwner(address newOwner) external {
-        require(tx.origin == owner, "not owner");
+        require(msg.sender == owner, "not owner");
         require(newOwner != address(0), "zero");
         owner = newOwner;
     }
